@@ -1,0 +1,36 @@
+{
+  "name": "gy271",
+  "description": "a package of gy271 driver library",
+  "description_zh": "gy271驱动库",
+  "enable": "PKG_USING_GY271",
+  "keywords": [
+    "gy271",
+    "i2c",
+    "sensor"
+  ],
+  "category": "peripherals/sensors",
+  "author": {
+    "name": "jch12138",
+    "email": "1099481194@qq.com",
+    "github": "jch12138"
+  },
+  "license": "Apache-2.0",
+  "repository": "https://github.com/RT-Thread-packages/gy271",
+  "icon": "https://www.rt-thread.org/qa/template/fxiaomi/style/image/logo.png",
+  "homepage": "https://github.com/RT-Thread-packages/gy271",
+  "doc": "unknown",
+  "site": [
+    {
+      "version": "v1.0.0",
+      "URL": "https://github.com/RT-Thread-packages/gy271/archive/refs/tags/1.0.0.zip",
+      "filename": "gy271-1.0.0.zip",
+      "VER_SHA": ""
+    },
+    {
+      "version": "latest",
+      "URL": "https://github.com/RT-Thread-packages/gy271.git",
+      "filename": "gy271-latest.zip",
+      "VER_SHA": "master"
+    }
+  ]
+}
