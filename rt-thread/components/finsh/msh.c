@@ -163,7 +163,7 @@ static int msh_split(char *cmd, rt_size_t length, char *argv[FINSH_ARG_MAX])
     while (position < length)
     {
         /* strip bank and tab */
-        while ((*ptr == ' ' || *ptr == '\t') && position < length)
+        while ((*ptr == '=' || *ptr == '\t') && position < length)
         {
             *ptr = '\0';
             ptr ++;
@@ -216,7 +216,7 @@ static int msh_split(char *cmd, rt_size_t length, char *argv[FINSH_ARG_MAX])
         {
             argv[argc] = ptr;
             argc ++;
-            while ((*ptr != ' ' && *ptr != '\t') && position < length)
+            while ((*ptr != '=' && *ptr != '\t') && position < length)
             {
                 ptr ++;
                 position ++;
@@ -332,7 +332,7 @@ static int _msh_exec_cmd(char *cmd, rt_size_t length, int *retp)
     RT_ASSERT(retp);
 
     /* find the size of first command */
-    while (cmd0_size < length && (cmd[cmd0_size] != ' ' && cmd[cmd0_size] != '\t'))
+    while (cmd0_size < length && (cmd[cmd0_size] != '=' && cmd[cmd0_size] != '\t'))
         cmd0_size ++;
     if (cmd0_size == 0)
         return -RT_ERROR;
@@ -543,7 +543,7 @@ int msh_exec(char *cmd, rt_size_t length)
     int cmd_ret = 0;
 
     /* strim the beginning of command */
-    while ((length > 0) && (*cmd  == ' ' || *cmd == '\t'))
+    while ((length > 0) && (*cmd  == '=' || *cmd == '\t'))
     {
         cmd++;
         length--;
@@ -561,6 +561,10 @@ int msh_exec(char *cmd, rt_size_t length)
         if(cmd_ret < 0)
         {
             rt_kprintf("%s: command failed %d.\n", cmd, cmd_ret);
+        }
+        else
+        {
+            rt_kprintf("exec_done\n");
         }
         return cmd_ret;
     }
@@ -594,7 +598,7 @@ int msh_exec(char *cmd, rt_size_t length)
     {
         char *tcmd;
         tcmd = cmd;
-        while (*tcmd != ' ' && *tcmd != '\0')
+        while (*tcmd != '=' && *tcmd != '\0')
         {
             tcmd++;
         }

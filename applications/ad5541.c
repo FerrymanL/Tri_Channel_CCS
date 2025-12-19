@@ -105,7 +105,7 @@ ad5541_handle_t ad5541_create(const ad5541_config_t *config)
         return RT_NULL;
     }
 
-    ad5541_set_voltage((ad5541_handle_t)pdev, 0.0f);
+    ad5541_set_voltage((ad5541_handle_t)pdev, 2.5f);
 
     return (ad5541_handle_t)pdev;
 }
