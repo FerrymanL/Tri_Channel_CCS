@@ -28,18 +28,18 @@ static ad5541_handle_t ad5541_handle_tb[3] = {0};
 static ad5541_config_t ad5541_config_tb[] = {
     {
         .dev_name = "ad5541_1",
+        .bus_name = "spi3",
+        .cs_pin   = GET_PIN(A, 15),
+    },
+    {
+        .dev_name = "ad5541_2",
         .bus_name = "spi1",
         .cs_pin   = GET_PIN(A, 4),
     },
     {
-        .dev_name = "ad5541_2",
+        .dev_name = "ad5541_3",
         .bus_name = "spi2",
         .cs_pin   = GET_PIN(B, 12),
-    },
-    {
-        .dev_name = "ad5541_3",
-        .bus_name = "spi3",
-        .cs_pin   = GET_PIN(A, 15),
     },
 };
 
@@ -50,6 +50,8 @@ int main(void)
         if (ad5541_handle_tb[i] == RT_NULL) {
             rt_kprintf("ad5541_%d create failed!\n", i + 1);
         }
+        rt_thread_mdelay(10);
+        ad5541_set_voltage(ad5541_handle_tb[i], 2.5f);
     }
 
     rt_pin_mode(LED0_PIN, PIN_MODE_OUTPUT);
@@ -62,81 +64,93 @@ int main(void)
     }
 }
 
-static void ad5541_1_volt_set(int argc, char **argv)
+static int ad5541_1_volt_set(int argc, char **argv)
 {
     if (argc < 1) {
         rt_kprintf("Usage: V1=<volt>\n");
-        return;
+        return -1;
     }
 
     float volt = (float)atof(argv[1]);
     ad5541_set_voltage(ad5541_handle_tb[0], volt);
+
+    return 0;
 }
 MSH_CMD_EXPORT_ALIAS(ad5541_1_volt_set, V1, set channel 1 output voltage);
 
-static void ad5541_2_volt_set(int argc, char **argv)
+static int ad5541_2_volt_set(int argc, char **argv)
 {
     if (argc < 1) {
         rt_kprintf("Usage: V2=<volt>\n");
-        return;
+        return -1;
     }
 
     float volt = (float)atof(argv[1]);
     ad5541_set_voltage(ad5541_handle_tb[1], volt);
+
+    return 0;
 }
 MSH_CMD_EXPORT_ALIAS(ad5541_2_volt_set, V2, set channel 2 output voltage);
 
-static void ad5541_3_volt_set(int argc, char **argv)
+static int ad5541_3_volt_set(int argc, char **argv)
 {
     if (argc < 1) {
         rt_kprintf("Usage: V3=<volt>\n");
-        return;
+        return -1;
     }
 
     float volt = (float)atof(argv[1]);
     ad5541_set_voltage(ad5541_handle_tb[2], volt);
+
+    return 0;
 }
 MSH_CMD_EXPORT_ALIAS(ad5541_3_volt_set, V3, set channel 3 output voltage);
 
-static void ad5541_1_curr_set(int argc, char **argv)
+static int ad5541_1_curr_set(int argc, char **argv)
 {
     if (argc < 1) {
         rt_kprintf("Usage: I1=<current>\n");
-        return;
+        return -1;
     }
 
-    float curr = (atof(argv[1]) / 1000.0f) * CHANNEL_1_CURR_K + CHANNEL_1_CURR_B;
+    float curr = ((float)atof(argv[1]) / 1000.0f) * CHANNEL_1_CURR_K + CHANNEL_1_CURR_B;
 
     float volt = (5.0f - curr * 120.0f) / 2.0f;
     ad5541_set_voltage(ad5541_handle_tb[0], volt);
+
+    return 0;
 }
 MSH_CMD_EXPORT_ALIAS(ad5541_1_curr_set, I1, set channel 1 output current);
 
-static void ad5541_2_curr_set(int argc, char **argv)
+static int ad5541_2_curr_set(int argc, char **argv)
 {
     if (argc < 1) {
         rt_kprintf("Usage: I2=<current>\n");
-        return;
+        return -1;
     }
 
-    float curr = (atof(argv[1]) / 1000.0f) * CHANNEL_2_CURR_K + CHANNEL_2_CURR_B;
+    float curr = ((float)atof(argv[1]) / 1000.0f) * CHANNEL_2_CURR_K + CHANNEL_2_CURR_B;
 
     float volt = (5.0f - curr * 120.0f) / 2.0f;
     ad5541_set_voltage(ad5541_handle_tb[1], volt);
+
+    return 0;
 }
 MSH_CMD_EXPORT_ALIAS(ad5541_2_curr_set, I2, set channel 2 output current);
 
-static void ad5541_3_curr_set(int argc, char **argv)
+static int ad5541_3_curr_set(int argc, char **argv)
 {
     if (argc < 1) {
         rt_kprintf("Usage: I3=<current>\n");
-        return;
+        return -1;
     }
 
-    float curr = (atof(argv[1]) / 1000.0f) * CHANNEL_3_CURR_K + CHANNEL_3_CURR_B;
+    float curr = ((float)atof(argv[1]) / 1000.0f) * CHANNEL_3_CURR_K + CHANNEL_3_CURR_B;
 
     float volt = (5.0f - curr * 120.0f) / 2.0f;
     ad5541_set_voltage(ad5541_handle_tb[2], volt);
+
+    return 0;
 }
 MSH_CMD_EXPORT_ALIAS(ad5541_3_curr_set, I3, set channel 3 output current);
 
