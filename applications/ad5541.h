@@ -16,7 +16,6 @@ typedef struct {
 
 typedef void *ad5541_handle_t;
 
-
 ad5541_handle_t ad5541_create(const ad5541_config_t *config);
 
 int32_t ad5541_set_voltage(ad5541_handle_t handle, float voltage);

@@ -6,11 +6,25 @@
 #include <drivers/misc.h>
 #include "msh.h"
 #include "ad5541.h"
+#include "ws2812b.h"
 
-#define LED0_PIN    GET_PIN(C, 11)
+// #define LED0_PIN    GET_PIN(C, 11)
 
 #define UART3_RX_BUF_SIZE    256
 #define UART3_FRAME_BUF_SIZE 512
+
+#define REF_VOLT           5.0f
+#define MIN_OUTPUT_VOLT    0.0f 
+#define MAX_OUTPUT_VOLT    5.0f * 1000.0f
+
+#define CHANNEL_1_RS    120.0f
+#define CHANNEL_2_RS    120.0f
+#define CHANNEL_3_RS    120.0f
+
+#define MIN_OUTPUT_CURR(rs)    (((((MIN_OUTPUT_VOLT / 1000.0f) * 2.0f) - REF_VOLT) / rs) * 1000.0f)
+#define MAX_OUTPUT_CURR(rs)    (((((MAX_OUTPUT_VOLT / 1000.0f) * 2.0f) - REF_VOLT) / rs) * 1000.0f)
+
+#define CURRENT_TRANSFORM_FORMULA(curr, rs)    ((REF_VOLT - (curr * rs)) / 2.0f)
 
 #define CHANNEL_1_CURR_K    1.0f
 #define CHANNEL_1_CURR_B    0.0f
@@ -43,6 +57,11 @@ static ad5541_config_t ad5541_config_tb[] = {
     },
 };
 
+static ws2812b_handle_t ws2812b_handle = NULL;
+static ws2812b_config_t ws2812b_config = {
+    .di_pin = GET_PIN(C, 11),
+};
+
 int main(void)
 {
     for (uint32_t  i = 0; i < RT_ARRAY_SIZE(ad5541_handle_tb); i++) {
@@ -54,15 +73,34 @@ int main(void)
         ad5541_set_voltage(ad5541_handle_tb[i], 2.5f);
     }
 
-    rt_pin_mode(LED0_PIN, PIN_MODE_OUTPUT);
+    // rt_pin_mode(LED0_PIN, PIN_MODE_OUTPUT);
+    ws2812b_handle = ws2812b_create(&ws2812b_config);
+
     while (1)
     {
-        rt_pin_write(LED0_PIN, PIN_HIGH);
+        // rt_pin_write(LED0_PIN, PIN_HIGH);
+        ws2812b_led_ctrl(ws2812b_handle, WS2812B_COLOR_GREEN, RT_TRUE);
         rt_thread_mdelay(500);
-        rt_pin_write(LED0_PIN, PIN_LOW);
+        // rt_pin_write(LED0_PIN, PIN_LOW);
+        ws2812b_led_ctrl(ws2812b_handle, WS2812B_COLOR_GREEN, RT_FALSE);
         rt_thread_mdelay(500);
     }
 }
+
+static int channel_output_curr_range_get(int argc, char **argv)
+{
+    if (argc < 1) {
+        rt_kprintf("Usage: Range\n");
+        return -1;
+    }
+
+    rt_kprintf("Channel 1 Current Range: [%.6f ~ %.6f] mA\n", MIN_OUTPUT_CURR(CHANNEL_1_RS), MAX_OUTPUT_CURR(CHANNEL_1_RS));
+    rt_kprintf("Channel 2 Current Range: [%.6f ~ %.6f] mA\n", MIN_OUTPUT_CURR(CHANNEL_2_RS), MAX_OUTPUT_CURR(CHANNEL_2_RS));
+    rt_kprintf("Channel 3 Current Range: [%.6f ~ %.6f] mA\n", MIN_OUTPUT_CURR(CHANNEL_3_RS), MAX_OUTPUT_CURR(CHANNEL_3_RS));
+
+    return 0;
+}
+MSH_CMD_EXPORT_ALIAS(channel_output_curr_range_get, Range, get output current range of all channels);
 
 static int ad5541_1_volt_set(int argc, char **argv)
 {
@@ -72,7 +110,12 @@ static int ad5541_1_volt_set(int argc, char **argv)
     }
 
     float volt = (float)atof(argv[1]);
-    ad5541_set_voltage(ad5541_handle_tb[0], volt);
+    if (volt < MIN_OUTPUT_VOLT || volt > MAX_OUTPUT_VOLT) {
+        rt_kprintf("Voltage Out of Range [%.2f ~ %.2f] mV\r\n", MIN_OUTPUT_VOLT, MAX_OUTPUT_VOLT);
+        return -1;
+    }
+    
+    ad5541_set_voltage(ad5541_handle_tb[0], volt / 1000.0f);
 
     return 0;
 }
@@ -86,7 +129,12 @@ static int ad5541_2_volt_set(int argc, char **argv)
     }
 
     float volt = (float)atof(argv[1]);
-    ad5541_set_voltage(ad5541_handle_tb[1], volt);
+    if (volt < MIN_OUTPUT_VOLT || volt > MAX_OUTPUT_VOLT) {
+        rt_kprintf("Voltage Out of Range [%.6f ~ %.6f] mV\r\n", MIN_OUTPUT_VOLT, MAX_OUTPUT_VOLT);
+        return -1;
+    }
+
+    ad5541_set_voltage(ad5541_handle_tb[1], volt / 1000.0f);
 
     return 0;
 }
@@ -100,7 +148,12 @@ static int ad5541_3_volt_set(int argc, char **argv)
     }
 
     float volt = (float)atof(argv[1]);
-    ad5541_set_voltage(ad5541_handle_tb[2], volt);
+    if (volt < MIN_OUTPUT_VOLT || volt > MAX_OUTPUT_VOLT) {
+        rt_kprintf("Voltage Out of Range [%.6f ~ %.6f] mV\r\n", MIN_OUTPUT_VOLT, MAX_OUTPUT_VOLT);
+        return -1;
+    }
+    
+    ad5541_set_voltage(ad5541_handle_tb[2], volt / 1000.0f);
 
     return 0;
 }
@@ -113,9 +166,15 @@ static int ad5541_1_curr_set(int argc, char **argv)
         return -1;
     }
 
-    float curr = ((float)atof(argv[1]) / 1000.0f) * CHANNEL_1_CURR_K + CHANNEL_1_CURR_B;
+    float curr = (float)atof(argv[1]);
+    if (curr < MIN_OUTPUT_CURR(CHANNEL_1_RS) || curr > MAX_OUTPUT_CURR(CHANNEL_1_RS)) {
+        rt_kprintf("Current Out of Range: [%.6f ~ %.6f] mA\n", MIN_OUTPUT_CURR(CHANNEL_1_RS), MAX_OUTPUT_CURR(CHANNEL_1_RS));
+        return -1;
+    }
 
-    float volt = (5.0f - curr * 120.0f) / 2.0f;
+    float curr_cal = (curr / 1000.0f) * CHANNEL_1_CURR_K + CHANNEL_1_CURR_B;
+    float volt = CURRENT_TRANSFORM_FORMULA(curr_cal, CHANNEL_1_RS);
+
     ad5541_set_voltage(ad5541_handle_tb[0], volt);
 
     return 0;
@@ -129,9 +188,15 @@ static int ad5541_2_curr_set(int argc, char **argv)
         return -1;
     }
 
-    float curr = ((float)atof(argv[1]) / 1000.0f) * CHANNEL_2_CURR_K + CHANNEL_2_CURR_B;
+    float curr = (float)atof(argv[1]);
+    if (curr < MIN_OUTPUT_CURR(CHANNEL_2_RS) || curr > MAX_OUTPUT_CURR(CHANNEL_2_RS)) {
+        rt_kprintf("Current Out of Range: [%.2f ~ %.2f] mA\n", MIN_OUTPUT_CURR(CHANNEL_2_RS), MAX_OUTPUT_CURR(CHANNEL_2_RS));
+        return -1;
+    }
 
-    float volt = (5.0f - curr * 120.0f) / 2.0f;
+    float curr_cal = (curr / 1000.0f) * CHANNEL_2_CURR_K + CHANNEL_2_CURR_B;
+    float volt = CURRENT_TRANSFORM_FORMULA(curr_cal, CHANNEL_2_RS);
+
     ad5541_set_voltage(ad5541_handle_tb[1], volt);
 
     return 0;
@@ -145,9 +210,15 @@ static int ad5541_3_curr_set(int argc, char **argv)
         return -1;
     }
 
-    float curr = ((float)atof(argv[1]) / 1000.0f) * CHANNEL_3_CURR_K + CHANNEL_3_CURR_B;
+    float curr = (float)atof(argv[1]);
+    if (curr < MIN_OUTPUT_CURR(CHANNEL_3_RS) || curr > MAX_OUTPUT_CURR(CHANNEL_3_RS)) {
+        rt_kprintf("Current Out of Range: [%.2f ~ %.2f] mA\n", MIN_OUTPUT_CURR(CHANNEL_3_RS), MAX_OUTPUT_CURR(CHANNEL_3_RS));
+        return -1;
+    }
 
-    float volt = (5.0f - curr * 120.0f) / 2.0f;
+    float curr_cal = (curr / 1000.0f) * CHANNEL_3_CURR_K + CHANNEL_3_CURR_B;
+    float volt = CURRENT_TRANSFORM_FORMULA(curr, CHANNEL_3_RS);
+
     ad5541_set_voltage(ad5541_handle_tb[2], volt);
 
     return 0;
