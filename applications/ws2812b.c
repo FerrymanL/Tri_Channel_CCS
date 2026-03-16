@@ -7,19 +7,20 @@
 #define LOG_LVL LOG_LVL_WARNING
 #include <ulog.h>
 
+#define NS_TO_CYCLE(ns) ((ns * 160) / 6000)
+
 typedef struct {
     uint16_t di_pin;
+    ws2812b_color_t color;
 
     GPIO_TypeDef *port;
     uint16_t pin;
 } ws2812b_dev_t;
 
-static inline void ws2812b_delay_ns(uint32_t ns)
+__STATIC_FORCEINLINE void ws2812b_delay_ns(uint32_t cycles)
 {
-    volatile uint32_t cycles = (ns * 168) / 1000;
-
-    while (cycles--) {
-        __nop();
+    while(cycles--) {
+        __NOP();
     }
 }
 
@@ -42,17 +43,17 @@ static void ws2812b_reset(ws2812b_dev_t *pdev)
 static void ws2812b_send_bit0(ws2812b_dev_t *pdev)
 {
     ws2812b_pin_high(pdev);
-    ws2812b_delay_ns(300);
+    ws2812b_delay_ns(NS_TO_CYCLE(300));
     ws2812b_pin_low(pdev);
-    ws2812b_delay_ns(1090);
+    ws2812b_delay_ns(NS_TO_CYCLE(900));
 }
 
 static void ws2812b_send_bit1(ws2812b_dev_t *pdev)
 {
     ws2812b_pin_high(pdev);
-    ws2812b_delay_ns(1090);
+    ws2812b_delay_ns(NS_TO_CYCLE(900));
     ws2812b_pin_low(pdev);
-    ws2812b_delay_ns(320);
+    ws2812b_delay_ns(NS_TO_CYCLE(300));
 }
 
 static void ws2812b_send_byte(ws2812b_dev_t *pdev, uint8_t data)
@@ -114,7 +115,18 @@ ws2812b_handle_t ws2812b_create(const ws2812b_config_t *config)
     return (ws2812b_handle_t)pdev;
 }
 
-void ws2812b_led_ctrl(ws2812b_handle_t handle, ws2812b_color_t color, uint8_t state)
+void ws2812b_set_color(ws2812b_handle_t handle, ws2812b_color_t color)
+{
+    if (RT_NULL == handle) {
+        LOG_E("handle null");
+        return;
+    }
+
+    ws2812b_dev_t *pdev = (ws2812b_dev_t *)handle;
+    pdev->color = color;
+}
+
+void ws2812b_led_ctrl(ws2812b_handle_t handle, rt_bool_t state)
 {
     if (RT_NULL == handle) {
         LOG_E("handle null");
@@ -123,28 +135,12 @@ void ws2812b_led_ctrl(ws2812b_handle_t handle, ws2812b_color_t color, uint8_t st
 
     ws2812b_dev_t *pdev = (ws2812b_dev_t *)handle;
 
-    uint8_t rgb[3] = {0};
-
-    if (state) {
-        switch (color)
-        {
-            case WS2812B_COLOR_RED:
-                rgb[1] = 0x00;
-                break;
-
-            case WS2812B_COLOR_GREEN:
-                rgb[0] = 0x00;
-                break;
-
-            case WS2812B_COLOR_BLUE:
-                rgb[2] = 0x00;
-                break;
-
-            default:
-                LOG_E("invalid color");
-                return;
-        }
+    if (pdev->color >= WS2812B_COLOR_MAX) {
+        LOG_E("invalid color");
+        return;
     }
+
+    const uint8_t *rgb = state ? ws2812b_color_table[pdev->color] : ws2812b_color_table[WS2812B_COLOR_OFF];
 
     rt_base_t level = rt_hw_interrupt_disable();
 

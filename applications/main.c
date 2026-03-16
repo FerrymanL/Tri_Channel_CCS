@@ -14,7 +14,7 @@
 #define UART3_FRAME_BUF_SIZE 512
 
 #define REF_VOLT           5.0f
-#define MIN_OUTPUT_VOLT    0.0f 
+#define MIN_OUTPUT_VOLT    0.0f
 #define MAX_OUTPUT_VOLT    5.0f * 1000.0f
 
 #define CHANNEL_1_RS    120.0f
@@ -62,6 +62,36 @@ static ws2812b_config_t ws2812b_config = {
     .di_pin = GET_PIN(C, 11),
 };
 
+static rt_timer_t connect_timer = NULL;
+
+static void connection_timeout_callback(void *parameter)
+{
+    ws2812b_set_color(ws2812b_handle, WS2812B_COLOR_RED);
+    rt_timer_stop(connect_timer);
+}
+
+static int host_connection_state(int argc, char **argv)
+{
+    if (argc < 2) {
+        rt_kprintf("Usage: Connection=true/false\r\n");
+        return -1;
+    }
+
+    if (!rt_strcmp(argv[1], "True")) {
+        ws2812b_set_color(ws2812b_handle, WS2812B_COLOR_GREEN);
+        rt_timer_stop(connect_timer);
+        rt_timer_start(connect_timer);
+    } else if (!rt_strcmp(argv[1], "False")) {
+        ws2812b_set_color(ws2812b_handle, WS2812B_COLOR_RED);
+        rt_timer_stop(connect_timer);
+    } else {
+        rt_kprintf("invalid para\r\n");
+    }
+
+    return 0;
+}
+MSH_CMD_EXPORT_ALIAS(host_connection_state, Connection, set host connection state);
+
 int main(void)
 {
     for (uint32_t  i = 0; i < RT_ARRAY_SIZE(ad5541_handle_tb); i++) {
@@ -69,21 +99,25 @@ int main(void)
         if (ad5541_handle_tb[i] == RT_NULL) {
             rt_kprintf("ad5541_%d create failed!\n", i + 1);
         }
-        rt_thread_mdelay(10);
+        rt_thread_mdelay(500);
         ad5541_set_voltage(ad5541_handle_tb[i], 2.5f);
+        rt_thread_mdelay(500);
+        ad5541_set_voltage(ad5541_handle_tb[i], 2.5f);
+        rt_thread_mdelay(500);
+        ad5541_set_voltage(ad5541_handle_tb[i], 2.5f);
+        rt_thread_mdelay(10);
     }
 
-    // rt_pin_mode(LED0_PIN, PIN_MODE_OUTPUT);
     ws2812b_handle = ws2812b_create(&ws2812b_config);
+    ws2812b_set_color(ws2812b_handle, WS2812B_COLOR_RED);
 
-    while (1)
-    {
-        // rt_pin_write(LED0_PIN, PIN_HIGH);
-        ws2812b_led_ctrl(ws2812b_handle, WS2812B_COLOR_GREEN, RT_TRUE);
-        rt_thread_mdelay(500);
-        // rt_pin_write(LED0_PIN, PIN_LOW);
-        ws2812b_led_ctrl(ws2812b_handle, WS2812B_COLOR_GREEN, RT_FALSE);
-        rt_thread_mdelay(500);
+    connect_timer = rt_timer_create("conn_timer", connection_timeout_callback, RT_NULL, 3000, RT_TIMER_FLAG_ONE_SHOT);
+
+    while (1) {
+        ws2812b_led_ctrl(ws2812b_handle,  RT_TRUE);
+        rt_thread_mdelay(1000);
+        ws2812b_led_ctrl(ws2812b_handle, RT_FALSE);
+        rt_thread_mdelay(1000);
     }
 }
 
@@ -102,9 +136,30 @@ static int channel_output_curr_range_get(int argc, char **argv)
 }
 MSH_CMD_EXPORT_ALIAS(channel_output_curr_range_get, Range, get output current range of all channels);
 
+static int ws2812b_set_current_color(int argc, char **argv)
+{
+    if (argc < 2) {
+        rt_kprintf("Usage: Led=red/green/blue\r\n");
+        return -1;
+    }
+
+    if (!rt_strcmp(argv[1], "red")) {
+        ws2812b_set_color(ws2812b_handle, WS2812B_COLOR_RED);
+    } else if (!rt_strcmp(argv[1], "green")) {
+        ws2812b_set_color(ws2812b_handle, WS2812B_COLOR_GREEN);
+    } else if (!rt_strcmp(argv[1], "blue")) {
+        ws2812b_set_color(ws2812b_handle, WS2812B_COLOR_BLUE);
+    } else {
+        rt_kprintf("invalid para\r\n");
+    }
+
+    return 0;
+}
+MSH_CMD_EXPORT_ALIAS(ws2812b_set_current_color, Led, set led current color);
+
 static int ad5541_1_volt_set(int argc, char **argv)
 {
-    if (argc < 1) {
+    if (argc < 2) {
         rt_kprintf("Usage: V1=<volt>\n");
         return -1;
     }
@@ -114,7 +169,7 @@ static int ad5541_1_volt_set(int argc, char **argv)
         rt_kprintf("Voltage Out of Range [%.2f ~ %.2f] mV\r\n", MIN_OUTPUT_VOLT, MAX_OUTPUT_VOLT);
         return -1;
     }
-    
+
     ad5541_set_voltage(ad5541_handle_tb[0], volt / 1000.0f);
 
     return 0;
@@ -123,7 +178,7 @@ MSH_CMD_EXPORT_ALIAS(ad5541_1_volt_set, V1, set channel 1 output voltage);
 
 static int ad5541_2_volt_set(int argc, char **argv)
 {
-    if (argc < 1) {
+    if (argc < 2) {
         rt_kprintf("Usage: V2=<volt>\n");
         return -1;
     }
@@ -142,7 +197,7 @@ MSH_CMD_EXPORT_ALIAS(ad5541_2_volt_set, V2, set channel 2 output voltage);
 
 static int ad5541_3_volt_set(int argc, char **argv)
 {
-    if (argc < 1) {
+    if (argc < 2) {
         rt_kprintf("Usage: V3=<volt>\n");
         return -1;
     }
@@ -152,7 +207,7 @@ static int ad5541_3_volt_set(int argc, char **argv)
         rt_kprintf("Voltage Out of Range [%.6f ~ %.6f] mV\r\n", MIN_OUTPUT_VOLT, MAX_OUTPUT_VOLT);
         return -1;
     }
-    
+
     ad5541_set_voltage(ad5541_handle_tb[2], volt / 1000.0f);
 
     return 0;
@@ -161,7 +216,7 @@ MSH_CMD_EXPORT_ALIAS(ad5541_3_volt_set, V3, set channel 3 output voltage);
 
 static int ad5541_1_curr_set(int argc, char **argv)
 {
-    if (argc < 1) {
+    if (argc < 2) {
         rt_kprintf("Usage: I1=<current>\n");
         return -1;
     }
@@ -183,7 +238,7 @@ MSH_CMD_EXPORT_ALIAS(ad5541_1_curr_set, I1, set channel 1 output current);
 
 static int ad5541_2_curr_set(int argc, char **argv)
 {
-    if (argc < 1) {
+    if (argc < 2) {
         rt_kprintf("Usage: I2=<current>\n");
         return -1;
     }
@@ -205,7 +260,7 @@ MSH_CMD_EXPORT_ALIAS(ad5541_2_curr_set, I2, set channel 2 output current);
 
 static int ad5541_3_curr_set(int argc, char **argv)
 {
-    if (argc < 1) {
+    if (argc < 2) {
         rt_kprintf("Usage: I3=<current>\n");
         return -1;
     }
@@ -217,7 +272,7 @@ static int ad5541_3_curr_set(int argc, char **argv)
     }
 
     float curr_cal = (curr / 1000.0f) * CHANNEL_3_CURR_K + CHANNEL_3_CURR_B;
-    float volt = CURRENT_TRANSFORM_FORMULA(curr, CHANNEL_3_RS);
+    float volt = CURRENT_TRANSFORM_FORMULA(curr_cal, CHANNEL_3_RS);
 
     ad5541_set_voltage(ad5541_handle_tb[2], volt);
 
