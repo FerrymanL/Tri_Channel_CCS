@@ -94,6 +94,10 @@ MSH_CMD_EXPORT_ALIAS(host_connection_state, Connection, set host connection stat
 
 int main(void)
 {
+    ws2812b_handle = ws2812b_create(&ws2812b_config);
+    connect_timer = rt_timer_create("conn_timer", connection_timeout_callback, RT_NULL, 3000, RT_TIMER_FLAG_ONE_SHOT);
+    ws2812b_set_color(ws2812b_handle, WS2812B_COLOR_RED);
+
     for (uint32_t  i = 0; i < RT_ARRAY_SIZE(ad5541_handle_tb); i++) {
         ad5541_handle_tb[i] = ad5541_create(&ad5541_config_tb[i]);
         if (ad5541_handle_tb[i] == RT_NULL) {
@@ -107,11 +111,6 @@ int main(void)
         ad5541_set_voltage(ad5541_handle_tb[i], 2.5f);
         rt_thread_mdelay(10);
     }
-
-    ws2812b_handle = ws2812b_create(&ws2812b_config);
-    ws2812b_set_color(ws2812b_handle, WS2812B_COLOR_RED);
-
-    connect_timer = rt_timer_create("conn_timer", connection_timeout_callback, RT_NULL, 3000, RT_TIMER_FLAG_ONE_SHOT);
 
     while (1) {
         ws2812b_led_ctrl(ws2812b_handle,  RT_TRUE);
